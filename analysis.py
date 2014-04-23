@@ -15,14 +15,24 @@ FIN = 'fin'
 FIN_ACK = 'fin-ack'
 
 class Packet(object):
-	def __init__(self, arr):
-		self.data = tuple(arr)
+	'''
+	Represents a TCP packet object
+	'''
 
+	def __init__(self, input_string):
+		'''
+		Packets are initialized from tcpdump's output to stdout. Janky and all but HEYOOOOOOO.
+		'''
+		arr = input_string.split()
+		self.data = tuple(arr) #This is not really for anyone to use - it just lets us generate a uniqe hash output
+
+		#Make timestamp into a float
 		a = map(float, arr[0].split(':'))
 		self.time = sum((a[0]*60*60, a[1]*60, a[2]))
 		self.src = arr[2]
 		self.dst = arr[4]
 
+		#Set this packet's type
 		typ = arr[6].rstrip(',')
 		if typ == '[S]':
 			self.typ = SYN
@@ -56,8 +66,7 @@ def main():
 	packets = dict()
 	try: 
 		for row in p.stdout:
-			#print row.split()
-			packet = Packet(row.split())
+			packet = Packet(row)
 			packets[packet] = packet.time
 	except KeyboardInterrupt:
 		p.terminate()
