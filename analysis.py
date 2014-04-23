@@ -1,3 +1,9 @@
+'''
+Script by Dan Bee, Laura Watiker, Paul Jones
+
+Usage: python analysis.py <tcpdump.pcap_file> (AKA the file that tcpdump writes when you use the -w flag)
+'''
+
 import subprocess as s
 import sys
 
@@ -41,6 +47,10 @@ class Packet(object):
 		return self.data == other.data
 
 def main():
+	if len(sys.argv) != 2:
+		print 'Usage: python analysis.py <tcpdump.pcap_file>'
+		sys.exit(1)
+
 	p = s.Popen(('tcpdump', '-r', sys.argv[1], 'tcp[tcpflags] & (tcp-ack|tcp-syn|tcp-rst|tcp-fin) != 0'), stdout=s.PIPE)
 
 	packets = dict()
@@ -52,7 +62,7 @@ def main():
 	except KeyboardInterrupt:
 		p.terminate()
 
-	
+
 
 	for key, val in packets.items():
 		print key, val
