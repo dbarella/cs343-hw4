@@ -85,14 +85,14 @@ def main():
 	for packet in packets:
 		if packet.typ == SYN:
 			syn_to_fin_ack[packet] = None
-		elif packet in syn_to_fin_ack and packet.typ == FIN_ACK:
+		elif packet in syn_to_fin_ack and packet.typ in [FIN_ACK, RESET]:
 			syn_to_fin_ack[packet] = packet
 
 	computed_times = []
-	for syn, fin_ack in syn_to_fin_ack.items():
-		if fin_ack is not None:
-			computed_times.append((syn.connection_id(), fin_ack.time - syn.time))
-		else:
+	for syn, terminal_packet in syn_to_fin_ack.items():
+		if terminal_packet is not None: #We have a terminal_packet counterpart (FIN-ACK or RESET)
+			computed_times.append((syn.connection_id(), terminal_packet.time - syn.time))
+		else: #Connection times out
 			computed_times.append((syn.connection_id(), DEFAULT_TIMEOUT))
 
 	for ident, time in computed_times:
