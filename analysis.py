@@ -50,13 +50,13 @@ class Packet(object):
 			self.typ = ACK
 
 	def connection_id(self):
-		return '{0} > {1}'.format(self.src, self.dst)
+		return '{0}>{1}'.format(self.src, self.dst)
 
 	def __repr__(self):
 		return '{0}: {1} > {2} [{3}]'.format(self.time, self.src, self.dst, self.typ)
 
 	def __hash__(self):
-		return hash(self.src + self.dst)
+		return hash(self.src) + hash(self.dst)
 
 	def __eq__(self, other):
 		return self.src == other.src and self.dst == other.dst
@@ -81,22 +81,29 @@ def main():
 
 	packets = gen_packet_list(sys.argv[1])
 
-	syn_to_fin_ack = {}
+	syn_to_terminal = {}
 	for packet in packets:
 		if packet.typ == SYN:
-			syn_to_fin_ack[packet] = None
-		elif packet in syn_to_fin_ack and packet.typ in [FIN_ACK, RESET]:
-			syn_to_fin_ack[packet] = packet
+			syn_to_terminal[packet] = None
+		elif packet in syn_to_terminal:			
+			if packet.typ in [FIN_ACK, RESET]:
+				syn_to_terminal[packet] = packet
+			
+			# elif syn_to_terminal[packet].typ == FIN_ACK:
+			# 	syn_to_terminal[packet] = packet
 
 	computed_times = []
-	for syn, terminal_packet in syn_to_fin_ack.items():
+	for syn, terminal_packet in syn_to_terminal.items():
 		if terminal_packet is not None: #We have a terminal_packet counterpart (FIN-ACK or RESET)
-			computed_times.append((syn.connection_id(), terminal_packet.time - syn.time))
+			computed_times.append((syn.connection_id(), syn.time, terminal_packet.time))
 		else: #Connection times out
-			computed_times.append((syn.connection_id(), DEFAULT_TIMEOUT))
+			computed_times.append((syn.connection_id(), syn.time, syn.time + DEFAULT_TIMEOUT))
 
-	for ident, time in computed_times:
-		print ident, time
-	
+	# print len(packets), len(computed_times)
+	# assert len(packets) == len(computed_times)
+
+	for ident, start, end in sorted(computed_times, key=lambda tup: tup[1]):
+		print '{0}, {1}, {2}, {3}'.format(ident, start, end, end-start)
+
 if __name__ == '__main__':
 	main()
