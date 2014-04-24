@@ -7,6 +7,8 @@ Usage: python analysis.py <tcpdump.pcap_file> (AKA the file that tcpdump writes 
 import subprocess as s
 import sys
 
+DEFAULT_TIMEOUT = 200
+
 SYN = 'syn'
 SYN_ACK = 'syn-ack'
 ACK = 'ack'
@@ -47,34 +49,54 @@ class Packet(object):
 		else:
 			self.typ = ACK
 
+	def connection_id(self):
+		return '{0} > {1}'.format(self.src, self.dst)
+
 	def __repr__(self):
 		return '{0}: {1} > {2} [{3}]'.format(self.time, self.src, self.dst, self.typ)
 
 	def __hash__(self):
-		return hash(self.data)
+		return hash(self.src + self.dst)
 
 	def __eq__(self, other):
-		return self.data == other.data
+		return self.src == other.src and self.dst == other.dst
+
+def gen_packet_list(filename):
+	p = s.Popen(('tcpdump', '-r', filename, 'tcp[tcpflags] & (tcp-ack|tcp-syn|tcp-rst|tcp-fin) != 0'), stdout=s.PIPE)
+	
+	packets = []
+	try: 
+		for row in p.stdout:
+			packet = Packet(row)
+			packets.append(packet)
+	except KeyboardInterrupt:
+		p.terminate()
+
+	return packets
 
 def main():
 	if len(sys.argv) != 2:
 		print 'Usage: python analysis.py <tcpdump.pcap_file>'
 		sys.exit(1)
 
-	p = s.Popen(('tcpdump', '-r', sys.argv[1], 'tcp[tcpflags] & (tcp-ack|tcp-syn|tcp-rst|tcp-fin) != 0'), stdout=s.PIPE)
+	packets = gen_packet_list(sys.argv[1])
 
-	packets = dict()
-	try: 
-		for row in p.stdout:
-			packet = Packet(row)
-			packets[packet] = packet.time
-	except KeyboardInterrupt:
-		p.terminate()
+	syn_to_fin_ack = {}
+	for packet in packets:
+		if packet.typ == SYN:
+			syn_to_fin_ack[packet] = None
+		elif packet in syn_to_fin_ack and packet.typ == FIN_ACK:
+			syn_to_fin_ack[packet] = packet
 
+	computed_times = []
+	for syn, fin_ack in syn_to_fin_ack.items():
+		if fin_ack is not None:
+			computed_times.append((syn.connection_id(), fin_ack.time - syn.time))
+		else:
+			computed_times.append((syn.connection_id(), DEFAULT_TIMEOUT))
 
-
-	for key, val in packets.items():
-		print key, val
+	for ident, time in computed_times:
+		print ident, time
 	
 if __name__ == '__main__':
 	main()
